@@ -18,8 +18,8 @@ Simple and minimal client for the Astakos authentication service
 """
 
 import logging
-import urlparse
-import urllib
+import urllib.parse
+import urllib.request, urllib.parse, urllib.error
 import hashlib
 from base64 import b64encode
 from copy import copy
@@ -29,17 +29,33 @@ try:
 except ImportError:
     import json
 
-from astakosclient.utils import \
-    retry_dec, scheme_to_class, parse_request, check_input, join_urls, \
-    render_overlimit_exception
-from astakosclient.errors import \
-    AstakosClientException, Unauthorized, BadRequest, NotFound, Forbidden, \
-    NoUserName, NoUUID, BadValue, QuotaLimit, InvalidResponse, NoEndpoints, \
-    ConnectionError
+from astakosclient.utils import (
+    retry_dec,
+    scheme_to_class,
+    parse_request,
+    check_input,
+    join_urls,
+    render_overlimit_exception,
+)
+from astakosclient.errors import (
+    AstakosClientException,
+    Unauthorized,
+    BadRequest,
+    NotFound,
+    Forbidden,
+    NoUserName,
+    NoUUID,
+    BadValue,
+    QuotaLimit,
+    InvalidResponse,
+    NoEndpoints,
+    ConnectionError,
+)
 
 
 # --------------------------------------------------------------------
 # Astakos Client Class
+
 
 def get_token_from_cookie(request, cookie_name):
     """Extract token from the cookie name provided
@@ -50,7 +66,7 @@ def get_token_from_cookie(request, cookie_name):
 
     """
     try:
-        cookie_content = urllib.unquote(request.COOKIE.get(cookie_name, None))
+        cookie_content = urllib.parse.unquote(request.COOKIE.get(cookie_name, None))
         return cookie_content.split("|")[1]
     except BaseException:
         return None
@@ -66,8 +82,16 @@ class AstakosClient(object):
     # Too many arguments. pylint: disable-msg=R0913
     # Too many local variables. pylint: disable-msg=R0914
     # Too many statements. pylint: disable-msg=R0915
-    def __init__(self, token, auth_url, retry=0, use_pool=False, pool_size=8,
-                 logger=None, headers=None):
+    def __init__(
+        self,
+        token: str,
+        auth_url: str,
+        retry=0,
+        use_pool=False,
+        pool_size=8,
+        logger=None,
+        headers=None,
+    ):
         """Initialize AstakosClient Class
 
         Keyword arguments:
@@ -84,17 +108,19 @@ class AstakosClient(object):
         if logger is None:
             logger = logging.getLogger("astakosclient")
             logger.setLevel(logging.INFO)
-        logger.debug("Intialize AstakosClient: auth_url = %s, "
-                     "use_pool = %s, pool_size = %s",
-                     auth_url, use_pool, pool_size)
+        logger.debug(
+            "Intialize AstakosClient: auth_url = %s, " "use_pool = %s, pool_size = %s",
+            auth_url,
+            use_pool,
+            pool_size,
+        )
 
         # Check that token and auth_url (mandatory options) are given
         check_input("__init__", logger, token=token, auth_url=auth_url)
 
         # Initialize connection class
-        parsed_auth_url = urlparse.urlparse(auth_url)
-        conn_class = \
-            scheme_to_class(parsed_auth_url.scheme, use_pool, pool_size)
+        parsed_auth_url = urllib.parse.urlparse(auth_url)
+        conn_class = scheme_to_class(parsed_auth_url.scheme, use_pool, pool_size)
         if conn_class is None:
             msg = "Unsupported scheme: %s" % parsed_auth_url.scheme
             logger.error(msg)
@@ -128,33 +154,37 @@ class AstakosClient(object):
 
         """
         astakos_service_catalog = parse_endpoints(
-            endpoints, ep_name="astakos_account", ep_version_id="v1.0")
-        self._account_url = \
-            astakos_service_catalog[0]['endpoints'][0]['publicURL']
-        parsed_account_url = urlparse.urlparse(self._account_url)
+            endpoints, ep_name="astakos_account", ep_version_id="v1.0"
+        )
+        self._account_url = astakos_service_catalog[0]["endpoints"][0]["publicURL"]
+        parsed_account_url = urllib.parse.urlparse(self._account_url)
 
         self._account_prefix = parsed_account_url.path
-        self.logger.debug("Got account_prefix \"%s\"" % self._account_prefix)
+        self.logger.debug(f'Got account_prefix "{self._account_prefix}"')
 
-        self._ui_url = \
-            astakos_service_catalog[0]['endpoints'][0]['SNF:uiURL']
-        parsed_ui_url = urlparse.urlparse(self._ui_url)
+        self._ui_url = astakos_service_catalog[0]["endpoints"][0]["SNF:uiURL"]
+        parsed_ui_url = urllib.parse.urlparse(self._ui_url)
 
         self._ui_prefix = parsed_ui_url.path
-        self.logger.debug("Got ui_prefix \"%s\"" % self._ui_prefix)
+        self.logger.debug('Got ui_prefix "%s"' % self._ui_prefix)
 
         if extra:
-            oauth2_service_catalog = \
-                parse_endpoints(endpoints, ep_name="astakos_oauth2")
-            self._oauth2_url = \
-                oauth2_service_catalog[0]['endpoints'][0]['publicURL']
-            parsed_oauth2_url = urlparse.urlparse(self._oauth2_url)
+            oauth2_service_catalog = parse_endpoints(
+                endpoints, ep_name="astakos_oauth2"
+            )
+            self._oauth2_url = oauth2_service_catalog[0]["endpoints"][0]["publicURL"]
+            parsed_oauth2_url = urllib.parse.urlparse(self._oauth2_url)
             self._oauth2_prefix = parsed_oauth2_url.path
 
     def _get_value(self, s, extra=False):
-        assert s in ['_account_url', '_account_prefix',
-                     '_ui_url', '_ui_prefix',
-                     '_oauth2_url', '_oauth2_prefix']
+        assert s in [
+            "_account_url",
+            "_account_prefix",
+            "_ui_url",
+            "_ui_prefix",
+            "_oauth2_url",
+            "_oauth2_prefix",
+        ]
         try:
             return getattr(self, s)
         except AttributeError:
@@ -163,27 +193,27 @@ class AstakosClient(object):
 
     @property
     def account_url(self):
-        return self._get_value('_account_url')
+        return self._get_value("_account_url")
 
     @property
     def account_prefix(self):
-        return self._get_value('_account_prefix')
+        return self._get_value("_account_prefix")
 
     @property
     def ui_url(self):
-        return self._get_value('_ui_url')
+        return self._get_value("_ui_url")
 
     @property
     def ui_prefix(self):
-        return self._get_value('_ui_prefix')
+        return self._get_value("_ui_prefix")
 
     @property
     def oauth2_url(self):
-        return self._get_value('_oauth2_url', extra=True)
+        return self._get_value("_oauth2_url", extra=True)
 
     @property
     def oauth2_prefix(self):
-        return self._get_value('_oauth2_prefix', extra=True)
+        return self._get_value("_oauth2_prefix", extra=True)
 
     @property
     def api_usercatalogs(self):
@@ -223,7 +253,7 @@ class AstakosClient(object):
 
     @property
     def api_user_account(self):
-        return join_urls(self.account_prefix, 'myaccount')
+        return join_urls(self.account_prefix, "myaccount")
 
     @property
     def api_projects(self):
@@ -247,16 +277,21 @@ class AstakosClient(object):
 
     # ----------------------------------
     @retry_dec
-    def _call_astakos(self, request_path, headers=None,
-                      body=None, method="GET", log_body=True):
+    def _call_astakos(
+        self, request_path, headers=None, body=None, method="GET", log_body=True
+    ):
         """Make the actual call to Astakos Service"""
         hashed_token = hashlib.sha1()
-        hashed_token.update(self.token)
+        hashed_token.update(self.token.encode("utf-8"))
         self.logger.debug(
             "Make a %s request to %s, using token with hash %s, "
             "with headers %r and body %r",
-            method, request_path, hashed_token.hexdigest(), headers,
-            body if log_body else "(not logged)")
+            method,
+            request_path,
+            hashed_token.hexdigest(),
+            headers,
+            body if log_body else "(not logged)",
+        )
 
         if self.headers:
             request_headers = copy(self.headers)
@@ -275,14 +310,12 @@ class AstakosClient(object):
 
         # Build request's header and body
         kwargs = {}
-        kwargs['headers'] = request_headers
-        kwargs['headers']['X-Auth-Token'] = self.token
+        kwargs["headers"] = request_headers
+        kwargs["headers"]["X-Auth-Token"] = self.token
         if body:
-            kwargs['body'] = copy(body)
-            kwargs['headers'].setdefault(
-                'content-type', 'application/octet-stream')
-        kwargs['headers'].setdefault('content-length',
-                                     len(body) if body else 0)
+            kwargs["body"] = copy(body)
+            kwargs["headers"].setdefault("content-type", "application/octet-stream")
+        kwargs["headers"].setdefault("content-length", len(body) if body else 0)
 
         try:
             # Get the connection object
@@ -294,13 +327,13 @@ class AstakosClient(object):
 
                 # Send request
                 # Used * or ** magic. pylint: disable-msg=W0142
-                (message, data, status) = \
-                    _do_request(conn, method, request_path, **kwargs)
+                (message, data, status) = _do_request(
+                    conn, method, request_path, **kwargs
+                )
 
                 # Log the response so other clients (like kamaki)
                 # can use them to produce their own log messages.
-                self.log_response = dict(
-                    status=status, message=message, data=data)
+                self.log_response = dict(status=status, message=message, data=data)
         except Exception as err:
             self.logger.error("Failed to send request: %r", err)
             raise ConnectionError(err)
@@ -316,16 +349,15 @@ class AstakosClient(object):
         elif status == 404:
             raise NotFound(message, data)
         elif status < 200 or status >= 300:
-            raise AstakosClientException(
-                message=message, status=status, response=data)
+            raise AstakosClientException(message=message, status=status, response=data)
 
         try:
             if data:
-                return json.loads(unicode(data))
+                return json.loads(str(data))
             else:
                 return None
         except Exception as err:
-            msg = "Cannot parse response \"%r\" with json: %s"
+            msg = 'Cannot parse response "%r" with json: %s'
             self.logger.error(msg % (data, str(err)))
             raise InvalidResponse(message=str(err), response=data)
 
@@ -334,15 +366,15 @@ class AstakosClient(object):
     #   with {'uuids': uuids}
     def _uuid_catalog(self, uuids, req_path):
         """Helper function to retrieve uuid catalog"""
-        req_headers = {'content-type': 'application/json'}
-        req_body = parse_request({'uuids': uuids}, self.logger)
-        data = self._call_astakos(req_path, headers=req_headers,
-                                  body=req_body, method="POST")
+        req_headers = {"content-type": "application/json"}
+        req_body = parse_request({"uuids": uuids}, self.logger)
+        data = self._call_astakos(
+            req_path, headers=req_headers, body=req_body, method="POST"
+        )
         if "uuid_catalog" in data:
             return data.get("uuid_catalog")
         else:
-            msg = "_uuid_catalog request returned %r. No uuid_catalog found" \
-                  % data
+            msg = "_uuid_catalog request returned %r. No uuid_catalog found" % data
             self.logger.error(msg)
             raise AstakosClientException(message=msg, response=data)
 
@@ -385,15 +417,18 @@ class AstakosClient(object):
     #   with {'displaynames': display_names}
     def _displayname_catalog(self, display_names, req_path):
         """Helper function to retrieve display names catalog"""
-        req_headers = {'content-type': 'application/json'}
-        req_body = parse_request({'displaynames': display_names}, self.logger)
-        data = self._call_astakos(req_path, headers=req_headers,
-                                  body=req_body, method="POST")
+        req_headers = {"content-type": "application/json"}
+        req_body = parse_request({"displaynames": display_names}, self.logger)
+        data = self._call_astakos(
+            req_path, headers=req_headers, body=req_body, method="POST"
+        )
         if "displayname_catalog" in data:
             return data.get("displayname_catalog")
         else:
-            msg = "_displayname_catalog request returned %r. " \
-                  "No displayname_catalog found" % data
+            msg = (
+                "_displayname_catalog request returned %r. "
+                "No displayname_catalog found" % data
+            )
             self.logger.error(msg)
             raise AstakosClientException(message=msg, response=data)
 
@@ -407,8 +442,7 @@ class AstakosClient(object):
         the names as keys and the corresponding uuids as values
 
         """
-        return self._displayname_catalog(
-            display_names, self.api_usercatalogs)
+        return self._displayname_catalog(display_names, self.api_usercatalogs)
 
     def get_uuid(self, display_name):
         """Return the uuid of a name (see getUUIDs)"""
@@ -421,8 +455,7 @@ class AstakosClient(object):
 
     def service_get_uuids(self, display_names):
         """Return a display_name catalog using a service's token"""
-        return self._displayname_catalog(
-            display_names, self.api_service_usercatalogs)
+        return self._displayname_catalog(display_names, self.api_service_usercatalogs)
 
     def service_get_uuid(self, display_name):
         """Return the uuid of a name using a service's token"""
@@ -459,10 +492,12 @@ class AstakosClient(object):
 
         """
         check_input("send_feedback", self.logger, message=message, data=data)
-        req_body = urllib.urlencode(
-            {'feedback_msg': message, 'feedback_data': data})
-        self._call_astakos(self.api_feedback, headers=None,
-                           body=req_body, method="POST")
+        req_body = urllib.parse.urlencode(
+            {"feedback_msg": message, "feedback_data": data}
+        )
+        self._call_astakos(
+            self.api_feedback, headers=None, body=req_body, method="POST"
+        )
 
     # ----------------------------------
     # do a POST to API_USERS/myaccount/default_project
@@ -477,35 +512,38 @@ class AstakosClient(object):
         Otherwise raise an AstakosClientException
 
         """
-        path = join_urls(self.api_user_account, 'default_project')
-        self.logger.info('path for set_default_project: %s', path)
-        req_headers = {'content-type': 'application/json'}
-        body = {'project_id': project_id}
+        path = join_urls(self.api_user_account, "default_project")
+        self.logger.info("path for set_default_project: %s", path)
+        req_headers = {"content-type": "application/json"}
+        body = {"project_id": project_id}
         req_body = parse_request(body, self.logger)
-        self._call_astakos(path, headers=req_headers, body=req_body,
-                           method="POST")
+        self._call_astakos(path, headers=req_headers, body=req_body, method="POST")
 
     # -----------------------------------------
     # do a POST to ``API_TOKENS`` with no token
     def get_endpoints(self, extra=False):
-        """ Get services' endpoints
+        """Get services' endpoints
 
         The extra parameter is to be used by _fill_endpoints.
         In case of error raise an AstakosClientException.
 
         """
-        req_headers = {'content-type': 'application/json'}
+        req_headers = {"content-type": "application/json"}
         req_body = None
-        r = self._call_astakos(self.api_tokens, headers=req_headers,
-                               body=req_body, method="POST",
-                               log_body=False)
+        r = self._call_astakos(
+            self.api_tokens,
+            headers=req_headers,
+            body=req_body,
+            method="POST",
+            log_body=False,
+        )
         self._fill_endpoints(r, extra=extra)
         return r
 
     # --------------------------------------
     # do a POST to ``API_TOKENS`` with a token
     def authenticate(self, tenant_name=None):
-        """ Authenticate and get services' endpoints
+        """Authenticate and get services' endpoints
 
         Keyword arguments:
         tenant_name         -- user's uniq id (optional)
@@ -519,21 +557,25 @@ class AstakosClient(object):
         In case of error raise an AstakosClientException.
 
         """
-        req_headers = {'content-type': 'application/json'}
-        body = {'auth': {'token': {'id': self.token}}}
+        req_headers = {"content-type": "application/json"}
+        body = {"auth": {"token": {"id": self.token}}}
         if tenant_name is not None:
-            body['auth']['tenantName'] = tenant_name
+            body["auth"]["tenantName"] = tenant_name
         req_body = parse_request(body, self.logger)
-        r = self._call_astakos(self.api_tokens, headers=req_headers,
-                               body=req_body, method="POST",
-                               log_body=False)
+        r = self._call_astakos(
+            self.api_tokens,
+            headers=req_headers,
+            body=req_body,
+            method="POST",
+            log_body=False,
+        )
         self._fill_endpoints(r)
         return r
 
     # --------------------------------------
     # do a GET to ``API_TOKENS`` with a token
     def validate_token(self, token_id, belongs_to=None):
-        """ Validate a temporary access token (oath2)
+        """Validate a temporary access token (oath2)
 
         Keyword arguments:
         belongsTo         -- confirm that token belongs to tenant
@@ -549,8 +591,8 @@ class AstakosClient(object):
         """
         path = join_urls(self.api_tokens, str(token_id))
         if belongs_to is not None:
-            params = {'belongsTo': belongs_to}
-            path = '%s?%s' % (path, urllib.urlencode(params))
+            params = {"belongsTo": belongs_to}
+            path = "%s?%s" % (path, urllib.parse.urlencode(params))
         return self._call_astakos(path, method="GET", log_body=False)
 
     # ----------------------------------
@@ -565,7 +607,7 @@ class AstakosClient(object):
         return self._call_astakos(self.api_quotas)
 
     def _join_if_list(self, val):
-        return ','.join(map(str, val)) if isinstance(val, list) else val
+        return ",".join(map(str, val)) if isinstance(val, list) else val
 
     # ----------------------------------
     # do a GET to ``API_SERVICE_QUOTAS``
@@ -587,11 +629,11 @@ class AstakosClient(object):
         query = self.api_service_quotas
         filters = {}
         if user is not None:
-            filters['user'] = self._join_if_list(user)
+            filters["user"] = self._join_if_list(user)
         if project_id is not None:
-            filters['project'] = self._join_if_list(project_id)
+            filters["project"] = self._join_if_list(project_id)
         if filters:
-            query += "?" + urllib.urlencode(filters)
+            query += "?" + urllib.parse.urlencode(filters)
         return self._call_astakos(query)
 
     # ----------------------------------
@@ -612,9 +654,9 @@ class AstakosClient(object):
         query = self.api_service_project_quotas
         filters = {}
         if project_id is not None:
-            filters['project'] = self._join_if_list(project_id)
+            filters["project"] = self._join_if_list(project_id)
         if filters:
-            query += "?" + urllib.urlencode(filters)
+            query += "?" + urllib.parse.urlencode(filters)
         return self._call_astakos(query)
 
     # ----------------------------------
@@ -629,54 +671,72 @@ class AstakosClient(object):
         Otherwise raise an AstakosClientException.
 
         """
-        req_headers = {'content-type': 'application/json'}
+        req_headers = {"content-type": "application/json"}
         req_body = parse_request(request, self.logger)
         try:
-            response = self._call_astakos(self.api_commissions,
-                                          headers=req_headers,
-                                          body=req_body,
-                                          method="POST")
+            response = self._call_astakos(
+                self.api_commissions, headers=req_headers, body=req_body, method="POST"
+            )
         except AstakosClientException as err:
             if err.status == 413:
                 try:
-                    msg, details = render_overlimit_exception(
-                        err.response, self.logger)
+                    msg, details = render_overlimit_exception(err.response, self.logger)
                 except Exception as perr:
-                    self.logger.error("issue_commission request returned '413'"
-                                      " but response '%r' could not be parsed:"
-                                      " %s", err.response, str(perr))
+                    self.logger.error(
+                        "issue_commission request returned '413'"
+                        " but response '%r' could not be parsed:"
+                        " %s",
+                        err.response,
+                        str(perr),
+                    )
                     msg, details = err.message, ""
-                raise QuotaLimit(message=msg,
-                                 details=details,
-                                 response=err.response)
+                raise QuotaLimit(message=msg, details=details, response=err.response)
             else:
                 raise
 
         if "serial" in response:
-            return response['serial']
+            return response["serial"]
         else:
-            msg = "issue_commission_core request returned %r. " + \
-                  "No serial found" % response
+            msg = (
+                "issue_commission_core request returned %r. "
+                + "No serial found" % response
+            )
             self.logger.error(msg)
             raise AstakosClientException(message=msg, response=response)
 
     def _mk_user_provision(self, holder, source, resource, quantity):
         holder = "user:" + holder
         source = "project:" + source
-        return {"holder": holder, "source": source,
-                "resource": resource, "quantity": quantity}
+        return {
+            "holder": holder,
+            "source": source,
+            "resource": resource,
+            "quantity": quantity,
+        }
 
     def _mk_project_provision(self, holder, resource, quantity):
         holder = "project:" + holder
-        return {"holder": holder, "source": None,
-                "resource": resource, "quantity": quantity}
+        return {
+            "holder": holder,
+            "source": None,
+            "resource": resource,
+            "quantity": quantity,
+        }
 
     def mk_provisions(self, holder, source, resource, quantity):
-        return [self._mk_user_provision(holder, source, resource, quantity),
-                self._mk_project_provision(source, resource, quantity)]
+        return [
+            self._mk_user_provision(holder, source, resource, quantity),
+            self._mk_project_provision(source, resource, quantity),
+        ]
 
-    def issue_commission_generic(self, user_provisions, project_provisions,
-                                 name="", force=False, auto_accept=False):
+    def issue_commission_generic(
+        self,
+        user_provisions,
+        project_provisions,
+        name="",
+        force=False,
+        auto_accept=False,
+    ):
         """Issue commission (for multiple holder/source pairs)
 
         keyword arguments:
@@ -698,11 +758,10 @@ class AstakosClient(object):
         request["name"] = name
         try:
             request["provisions"] = []
-            for (holder, source, resource), quantity in \
-                    user_provisions.iteritems():
+            for (holder, source, resource), quantity in list(user_provisions.items()):
                 p = self._mk_user_provision(holder, source, resource, quantity)
                 request["provisions"].append(p)
-            for (holder, resource), quantity in project_provisions.iteritems():
+            for (holder, resource), quantity in list(project_provisions.items()):
                 p = self._mk_project_provision(holder, resource, quantity)
                 request["provisions"].append(p)
         except Exception as err:
@@ -711,8 +770,9 @@ class AstakosClient(object):
 
         return self._issue_commission(request)
 
-    def issue_one_commission(self, holder, provisions,
-                             name="", force=False, auto_accept=False):
+    def issue_one_commission(
+        self, holder, provisions, name="", force=False, auto_accept=False
+    ):
         """Issue one commission (with specific holder and source)
 
         keyword arguments:
@@ -726,8 +786,9 @@ class AstakosClient(object):
         Otherwise raise an AstakosClientException.
 
         """
-        check_input("issue_one_commission", self.logger,
-                    holder=holder, provisions=provisions)
+        check_input(
+            "issue_one_commission", self.logger, holder=holder, provisions=provisions
+        )
 
         request = {}
         request["force"] = force
@@ -735,7 +796,7 @@ class AstakosClient(object):
         request["name"] = name
         try:
             request["provisions"] = []
-            for (source, resource), quantity in provisions.iteritems():
+            for (source, resource), quantity in list(provisions.items()):
                 ps = self.mk_provisions(holder, source, resource, quantity)
                 request["provisions"].extend(ps)
         except Exception as err:
@@ -744,10 +805,10 @@ class AstakosClient(object):
 
         return self._issue_commission(request)
 
-    def issue_resource_reassignment(self, holder, provisions, name="",
-                                    force=False, auto_accept=False):
-        """Change resource assignment to another project
-        """
+    def issue_resource_reassignment(
+        self, holder, provisions, name="", force=False, auto_accept=False
+    ):
+        """Change resource assignment to another project"""
 
         request = {}
         request["force"] = force
@@ -756,10 +817,9 @@ class AstakosClient(object):
 
         try:
             request["provisions"] = []
-            for key, quantity in provisions.iteritems():
+            for key, quantity in list(provisions.items()):
                 (from_source, to_source, resource) = key
-                ps = self.mk_provisions(
-                    holder, from_source, resource, -quantity)
+                ps = self.mk_provisions(holder, from_source, resource, -quantity)
                 ps += self.mk_provisions(holder, to_source, resource, quantity)
                 request["provisions"].extend(ps)
         except Exception as err:
@@ -793,7 +853,7 @@ class AstakosClient(object):
         """
         check_input("get_commission_info", self.logger, serial=serial)
 
-        path = self.api_commissions.rstrip('/') + "/" + str(serial)
+        path = self.api_commissions.rstrip("/") + "/" + str(serial)
         return self._call_astakos(path)
 
     # ----------------------------------
@@ -808,14 +868,12 @@ class AstakosClient(object):
         In case of success return nothing.
 
         """
-        check_input("commission_action", self.logger,
-                    serial=serial, action=action)
+        check_input("commission_action", self.logger, serial=serial, action=action)
 
-        path = self.api_commissions.rstrip('/') + "/" + str(serial) + "/action"
-        req_headers = {'content-type': 'application/json'}
+        path = self.api_commissions.rstrip("/") + "/" + str(serial) + "/action"
+        req_headers = {"content-type": "application/json"}
         req_body = parse_request({str(action): ""}, self.logger)
-        self._call_astakos(path, headers=req_headers,
-                           body=req_body, method="POST")
+        self._call_astakos(path, headers=req_headers, body=req_body, method="POST")
 
     def accept_commission(self, serial):
         """Accept a commission (see commission_action)"""
@@ -839,17 +897,23 @@ class AstakosClient(object):
         resolved.
 
         """
-        check_input("resolve_commissions", self.logger,
-                    accept_serials=accept_serials,
-                    reject_serials=reject_serials)
+        check_input(
+            "resolve_commissions",
+            self.logger,
+            accept_serials=accept_serials,
+            reject_serials=reject_serials,
+        )
 
-        req_headers = {'content-type': 'application/json'}
-        req_body = parse_request({"accept": accept_serials,
-                                  "reject": reject_serials},
-                                 self.logger)
-        return self._call_astakos(self.api_commissions_action,
-                                  headers=req_headers, body=req_body,
-                                  method="POST")
+        req_headers = {"content-type": "application/json"}
+        req_body = parse_request(
+            {"accept": accept_serials, "reject": reject_serials}, self.logger
+        )
+        return self._call_astakos(
+            self.api_commissions_action,
+            headers=req_headers,
+            body=req_body,
+            method="POST",
+        )
 
     # ----------------------------
     # do a GET to ``API_PROJECTS``
@@ -876,8 +940,8 @@ class AstakosClient(object):
             filters["mode"] = mode
         path = self.api_projects
         if filters:
-            path += "?" + urllib.urlencode(filters)
-        req_headers = {'content-type': 'application/json'}
+            path += "?" + urllib.parse.urlencode(filters)
+        req_headers = {"content-type": "application/json"}
         return self._call_astakos(path, headers=req_headers)
 
     # -----------------------------------------
@@ -903,11 +967,11 @@ class AstakosClient(object):
 
         In case of success, return project and application identifiers.
         """
-        req_headers = {'content-type': 'application/json'}
+        req_headers = {"content-type": "application/json"}
         req_body = parse_request(specs, self.logger)
-        return self._call_astakos(self.api_projects,
-                                  headers=req_headers, body=req_body,
-                                  method="POST")
+        return self._call_astakos(
+            self.api_projects, headers=req_headers, body=req_body, method="POST"
+        )
 
     # ------------------------------------------
     # do a PUT to ``API_PROJECTS``/<project_id>
@@ -921,10 +985,11 @@ class AstakosClient(object):
         In case of success, return project and application identifiers.
         """
         path = join_urls(self.api_projects, str(project_id))
-        req_headers = {'content-type': 'application/json'}
+        req_headers = {"content-type": "application/json"}
         req_body = parse_request(specs, self.logger)
-        return self._call_astakos(path, headers=req_headers,
-                                  body=req_body, method="PUT")
+        return self._call_astakos(
+            path, headers=req_headers, body=req_body, method="PUT"
+        )
 
     # -------------------------------------------------
     # do a POST to ``API_PROJECTS``/<project_id>/action
@@ -941,10 +1006,11 @@ class AstakosClient(object):
         """
         path = join_urls(self.api_projects, str(project_id))
         path = join_urls(path, "action")
-        req_headers = {'content-type': 'application/json'}
+        req_headers = {"content-type": "application/json"}
         req_body = parse_request({action: {"reason": reason}}, self.logger)
-        return self._call_astakos(path, headers=req_headers,
-                                  body=req_body, method="POST")
+        return self._call_astakos(
+            path, headers=req_headers, body=req_body, method="POST"
+        )
 
     # -------------------------------------------------
     # do a POST to ``API_PROJECTS``/<project_id>/action
@@ -962,12 +1028,13 @@ class AstakosClient(object):
         """
         path = join_urls(self.api_projects, str(project_id))
         path = join_urls(path, "action")
-        req_headers = {'content-type': 'application/json'}
-        req_body = parse_request({action: {
-            "reasons": reason,
-            "app_id": app_id}}, self.logger)
-        return self._call_astakos(path, headers=req_headers,
-                                  body=req_body, method="POST")
+        req_headers = {"content-type": "application/json"}
+        req_body = parse_request(
+            {action: {"reasons": reason, "app_id": app_id}}, self.logger
+        )
+        return self._call_astakos(
+            path, headers=req_headers, body=req_body, method="POST"
+        )
 
     # -------------------------------
     # do a GET to ``API_MEMBERSHIPS``
@@ -981,13 +1048,13 @@ class AstakosClient(object):
         In case of success, return a list of membership descriptions.
         """
         project_id = project if project_id is None else project_id
-        req_headers = {'content-type': 'application/json'}
+        req_headers = {"content-type": "application/json"}
         filters = {}
         if project_id is not None:
             filters["project"] = project_id
         path = self.api_memberships
         if filters:
-            path += '?' + urllib.urlencode(filters)
+            path += "?" + urllib.parse.urlencode(filters)
         return self._call_astakos(path, headers=req_headers)
 
     # -----------------------------------------
@@ -1018,10 +1085,11 @@ class AstakosClient(object):
         """
         path = join_urls(self.api_memberships, str(memb_id))
         path = join_urls(path, "action")
-        req_headers = {'content-type': 'application/json'}
+        req_headers = {"content-type": "application/json"}
         req_body = parse_request({action: reason}, self.logger)
-        return self._call_astakos(path, headers=req_headers,
-                                  body=req_body, method="POST")
+        return self._call_astakos(
+            path, headers=req_headers, body=req_body, method="POST"
+        )
 
     # --------------------------------
     # do a POST to ``API_MEMBERSHIPS``
@@ -1033,11 +1101,12 @@ class AstakosClient(object):
 
         In case of success, return membership identifier.
         """
-        req_headers = {'content-type': 'application/json'}
+        req_headers = {"content-type": "application/json"}
         body = {"join": {"project": project_id}}
         req_body = parse_request(body, self.logger)
-        return self._call_astakos(self.api_memberships, headers=req_headers,
-                                  body=req_body, method="POST")
+        return self._call_astakos(
+            self.api_memberships, headers=req_headers, body=req_body, method="POST"
+        )
 
     # --------------------------------
     # do a POST to ``API_MEMBERSHIPS``
@@ -1050,29 +1119,33 @@ class AstakosClient(object):
 
         In case of success, return membership identifier.
         """
-        req_headers = {'content-type': 'application/json'}
+        req_headers = {"content-type": "application/json"}
         body = {"enroll": {"project": project_id, "user": email}}
         req_body = parse_request(body, self.logger)
-        return self._call_astakos(self.api_memberships, headers=req_headers,
-                                  body=req_body, method="POST")
+        return self._call_astakos(
+            self.api_memberships, headers=req_headers, body=req_body, method="POST"
+        )
 
     # --------------------------------
     # do a POST to ``API_OAUTH2_TOKEN``
     def get_token(self, grant_type, client_id, client_secret, **body_params):
-        headers = {'content-type': 'application/x-www-form-urlencoded',
-                   'Authorization': 'Basic %s' % b64encode('%s:%s' %
-                                                           (client_id,
-                                                            client_secret))}
-        body_params['grant_type'] = grant_type
-        body = urllib.urlencode(body_params)
-        return self._call_astakos(self.api_oauth2_token, headers=headers,
-                                  body=body, method="POST")
+        headers = {
+            "content-type": "application/x-www-form-urlencoded",
+            "Authorization": "Basic %s"
+            % b64encode("%s:%s" % (client_id, client_secret)),
+        }
+        body_params["grant_type"] = grant_type
+        body = urllib.parse.urlencode(body_params)
+        return self._call_astakos(
+            self.api_oauth2_token, headers=headers, body=body, method="POST"
+        )
 
 
 # --------------------------------------------------------------------
 # parse endpoints
-def parse_endpoints(endpoints, ep_name=None, ep_type=None,
-                    ep_region=None, ep_version_id=None):
+def parse_endpoints(
+    endpoints, ep_name=None, ep_type=None, ep_region=None, ep_version_id=None
+):
     """Parse endpoints server response and extract the ones needed
 
     Keyword arguments:
@@ -1088,31 +1161,26 @@ def parse_endpoints(endpoints, ep_name=None, ep_type=None,
 
     """
     try:
-        catalog = endpoints['access']['serviceCatalog']
+        catalog = endpoints["access"]["serviceCatalog"]
         if ep_name is not None:
-            catalog = \
-                [c for c in catalog if c['name'] == ep_name]
+            catalog = [c for c in catalog if c["name"] == ep_name]
         if ep_type is not None:
-            catalog = \
-                [c for c in catalog if c['type'] == ep_type]
+            catalog = [c for c in catalog if c["type"] == ep_type]
         if ep_region is not None:
             for c in catalog:
-                c['endpoints'] = [e for e in c['endpoints']
-                                  if e['region'] == ep_region]
+                c["endpoints"] = [e for e in c["endpoints"] if e["region"] == ep_region]
             # Remove catalog entries with no endpoints
-            catalog = \
-                [c for c in catalog if c['endpoints']]
+            catalog = [c for c in catalog if c["endpoints"]]
         if ep_version_id is not None:
             for c in catalog:
-                c['endpoints'] = [e for e in c['endpoints']
-                                  if e['versionId'] == ep_version_id]
+                c["endpoints"] = [
+                    e for e in c["endpoints"] if e["versionId"] == ep_version_id
+                ]
             # Remove catalog entries with no endpoints
-            catalog = \
-                [c for c in catalog if c['endpoints']]
+            catalog = [c for c in catalog if c["endpoints"]]
 
         if not catalog:
-            raise NoEndpoints(ep_name, ep_type,
-                              ep_region, ep_version_id)
+            raise NoEndpoints(ep_name, ep_type, ep_region, ep_version_id)
         else:
             return catalog
     except KeyError:
@@ -1127,7 +1195,7 @@ def _do_request(conn, method, url, **kwargs):
     """The actual request. This function can easily be mocked"""
     conn.request(method, url, **kwargs)
     response = conn.getresponse()
-    length = response.getheader('content-length', None)
+    length = response.getheader("content-length", None)
     data = response.read(length)
     status = int(response.status)
     message = response.reason

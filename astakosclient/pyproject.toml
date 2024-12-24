@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "astakosclient"
+version = "0.21"  # Replace with the actual version
+description = "A client for the astakos authentication service."
+authors = [
+    { name = "Synnefo development team", email = "synnefo-devel@googlegroups.com" }
+]
+maintainers = [
+    { name = "Synnefo development team", email = "synnefo-devel@googlegroups.com" }
+]
+license = { text = "GNU General Public License v3 (GPLv3)" }
+readme = "README.md"
+requires-python = ">=3.6"
+classifiers = [
+    # Add your classifiers here
+]
+dependencies = [
+    "objpool @ git+https://github.com/LoniasGR/objpool.git",
+]

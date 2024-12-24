@@ -17,7 +17,7 @@
 Astakos Client utility module
 """
 
-from httplib import HTTPConnection, HTTPSConnection
+from http.client import HTTPConnection, HTTPSConnection
 from contextlib import closing
 
 from objpool.http import PooledHTTPConnection
@@ -31,6 +31,7 @@ except ImportError:
 
 def retry_dec(func):
     """Class Method Decorator"""
+
     def decorator(self, *args, **kwargs):
         """Retry `self.retry' times if connection fails"""
         attemps = 0
@@ -41,24 +42,23 @@ def retry_dec(func):
                 is_last_attempt = attemps == self.retry
                 if is_last_attempt:
                     raise err
-                if err.status == 401 or \
-                   err.status == 404 or \
-                   err.status == 413:
+                if err.status == 401 or err.status == 404 or err.status == 413:
                     # In case of Unauthorized response
                     # or Not Found or Request Entity Too Large
                     # return immediately
                     raise err
                 self.logger.warning("AstakosClient request failed..retrying")
                 attemps += 1
+
     return decorator
 
 
 def scheme_to_class(scheme, use_pool, pool_size):
     """Return the appropriate conn class for given scheme"""
+
     def _objpool(netloc):
         """Helper function to return a PooledHTTPConnection object"""
-        return PooledHTTPConnection(
-            netloc=netloc, scheme=scheme, size=pool_size)
+        return PooledHTTPConnection(netloc=netloc, scheme=scheme, size=pool_size)
 
     def _http_connection(netloc):
         """Helper function to return an HTTPConnection object"""
@@ -87,8 +87,7 @@ def parse_request(request, logger):
     try:
         return json.dumps(request)
     except Exception as err:
-        msg = "Cannot parse request \"%s\" with json: %s" \
-              % (request, str(err))
+        msg = 'Cannot parse request "%s" with json: %s' % (request, str(err))
         logger.error(msg)
         raise BadValue(msg)
 
@@ -97,8 +96,7 @@ def check_input(function_name, logger, **kwargs):
     """Check if given arguments are not None"""
     for i in kwargs:
         if kwargs[i] is None:
-            msg = "in " + function_name + ": " + \
-                  str(i) + " parameter not given"
+            msg = "in " + function_name + ": " + str(i) + " parameter not given"
             logger.error(msg)
             raise BadValue(msg)
 
@@ -118,23 +116,24 @@ def render_overlimit_exception(response, logger):
         "cyclades.floating_ip": "Floating IP address",
         "cyclades.network.private": "Private Network",
         "pithos.diskspace": "Storage space",
-        "astakos.pending_app": "Pending Applications"
+        "astakos.pending_app": "Pending Applications",
     }
     response = json.loads(response)
-    data = response['overLimit']['data']
+    data = response["overLimit"]["data"]
     usage = data["usage"]
     limit = data["limit"]
     available = limit - usage
-    provision = data['provision']
-    requested = provision['quantity']
-    resource = provision['resource']
+    provision = data["provision"]
+    requested = provision["quantity"]
+    resource = provision["resource"]
     try:
         resource = resource_name[resource]
     except KeyError:
         logger.error("Unknown resource name '%s'", resource)
 
     msg = "Resource Limit Exceeded for your account."
-    details = "Limit for resource '%s' exceeded for your account."\
-              " Available: %s, Requested: %s"\
-              % (resource, available, requested)
+    details = (
+        "Limit for resource '%s' exceeded for your account."
+        " Available: %s, Requested: %s" % (resource, available, requested)
+    )
     return msg, details

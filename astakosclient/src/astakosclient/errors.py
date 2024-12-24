@@ -20,27 +20,33 @@ Astakos Client Exceptions
 
 class AstakosClientException(Exception):
     """Base AstakosClientException Class"""
-    def __init__(self, message='', details='', status=500,
-                 response=None, errobject=None):
+
+    def __init__(
+        self, message="", details="", status=500, response=None, errobject=None
+    ):
         self.message = message
         self.details = details
         self.errobject = errobject
         self.response = response
-        if not hasattr(self, 'status'):
+        if not hasattr(self, "status"):
             self.status = status
-        super(AstakosClientException,
-              self).__init__(self.message, self.details, self.status)
+        super(AstakosClientException, self).__init__(
+            self.message, self.details, self.status
+        )
 
 
 class ConnectionError(AstakosClientException):
     """Connection failed"""
+
     def __init__(self, errobject):
         super(ConnectionError, self).__init__(
-            message=str(errobject), errobject=errobject)
+            message=str(errobject), errobject=errobject
+        )
 
 
 class BadValue(AstakosClientException):
     """Re-define ValueError Exception under AstakosClientException"""
+
     def __init__(self, details):
         message = "ValueError"
         super(BadValue, self).__init__(message, details)
@@ -52,31 +58,37 @@ class InvalidResponse(AstakosClientException):
 
 class BadRequest(AstakosClientException):
     """BadRequest Exception"""
+
     status = 400
 
 
 class Unauthorized(AstakosClientException):
     """Unauthorized Exception"""
+
     status = 401
 
 
 class Forbidden(AstakosClientException):
     """Forbidden Exception"""
+
     status = 403
 
 
 class NotFound(AstakosClientException):
     """NotFound Exception"""
+
     status = 404
 
 
 class QuotaLimit(AstakosClientException):
     """QuotaLimit Exception"""
+
     status = 413
 
 
 class NoUserName(AstakosClientException):
     """No display name for the given uuid"""
+
     def __init__(self, uuid):
         message = "No display name for the given uuid: %s" % uuid
         super(NoUserName, self).__init__(message)
@@ -84,6 +96,7 @@ class NoUserName(AstakosClientException):
 
 class NoUUID(AstakosClientException):
     """No uuid for the given display name"""
+
     def __init__(self, display_name):
         message = "No uuid for the given display name: %s" % display_name
         super(NoUUID, self).__init__(message)
@@ -91,12 +104,23 @@ class NoUUID(AstakosClientException):
 
 class NoEndpoints(AstakosClientException):
     """No endpoints found matching the criteria given"""
+
     def __init__(self, ep_name, ep_type, ep_region, ep_version_id):
-        message = "No endpoints found matching" + \
-                  (", name = %s" % ep_name) if ep_name is not None else "" + \
-                  (", type = %s" % ep_type) if ep_type is not None else "" + \
-                  (", region = %s" % ep_region) \
-                  if ep_region is not None else "" + \
-                  (", version_id = %s" % ep_version_id) \
-                  if ep_version_id is not None else "."
+        message = (
+            "No endpoints found matching" + (", name = %s" % ep_name)
+            if ep_name is not None
+            else (
+                "" + (", type = %s" % ep_type)
+                if ep_type is not None
+                else (
+                    "" + (", region = %s" % ep_region)
+                    if ep_region is not None
+                    else (
+                        "" + (", version_id = %s" % ep_version_id)
+                        if ep_version_id is not None
+                        else "."
+                    )
+                )
+            )
+        )
         super(NoEndpoints, self).__init__(message)

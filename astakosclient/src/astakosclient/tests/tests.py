@@ -37,13 +37,7 @@ from astakosclient.errors import \
     AstakosClientException, Unauthorized, BadRequest, NotFound, \
     NoUserName, NoUUID, BadValue, QuotaLimit
 
-# Use backported unittest functionality if Python < 2.7
-try:
-    import unittest2 as unittest
-except ImportError:
-    if sys.version_info < (2, 7):
-        raise Exception("The unittest2 package is required for Python < 2.7")
-    import unittest
+import unittest
 
 
 # --------------------------------------------------------------------
@@ -71,8 +65,8 @@ token = {
 user = {
     'id': "73917abc-abcd-477e-a1f1-1763abcdefab",
     'name': "Example User One",
-    'roles': [{u'id': 1, u'name': u'default'},
-              {u'id': 5, u'name': u'academic-login-users'}],
+    'roles': [{'id': 1, 'name': 'default'},
+              {'id': 5, 'name': 'academic-login-users'}],
     'roles_links': []
     }
 
@@ -361,7 +355,7 @@ def _req_commission(conn, method, url, **kwargs):
     if method == "POST":
         if 'body' not in kwargs:
             return _request_status_400(conn, method, url, **kwargs)
-        body = json.loads(unicode(kwargs['body']))
+        body = json.loads(str(kwargs['body']))
         if re.match('/?'+api_commissions+'$', url) is not None:
             # Issue Commission
             # Check if we have enough resources to give
@@ -385,7 +379,7 @@ def _req_commission(conn, method, url, **kwargs):
                     return _request_status_404(conn, method, url, **kwargs)
                 if len(body) != 1:
                     return _request_status_400(conn, method, url, **kwargs)
-                if "accept" not in body.keys() and "reject" not in body.keys():
+                if "accept" not in list(body.keys()) and "reject" not in list(body.keys()):
                     return _request_status_400(conn, method, url, **kwargs)
                 return ("", "", 200)
 
@@ -446,7 +440,7 @@ class TestCallAstakos(unittest.TestCase):
             client._call_astakos("/astakos/api/misspelled")
         except NotFound:
             pass
-        except Exception, e:
+        except Exception as e:
             self.fail("Got \"%s\" instead of 404" % e)
         else:
             self.fail("Should have returned 404 (Not Found)")
@@ -631,7 +625,7 @@ class TestDisplayNames(unittest.TestCase):
             client = AstakosClient(token['id'], auth_url,
                                    use_pool=False, retry=2)
             info = client.get_username(user['id'])
-        except Exception, e:
+        except Exception as e:
             self.fail("Shouldn't raise an Exception: %s" % e)
         self.assertEqual(info, user['name'])
 
