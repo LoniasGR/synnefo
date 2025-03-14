@@ -353,7 +353,7 @@ class AstakosClient(object):
 
         try:
             if data:
-                return json.loads(str(data))
+                return json.loads(data)
             else:
                 return None
         except Exception as err:
