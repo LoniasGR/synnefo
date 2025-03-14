@@ -1195,7 +1195,7 @@ def _do_request(conn, method, url, **kwargs):
     """The actual request. This function can easily be mocked"""
     conn.request(method, url, **kwargs)
     response = conn.getresponse()
-    length = response.getheader("content-length", None)
+    length = int(response.getheader("content-length", None))
     data = response.read(length)
     status = int(response.status)
     message = response.reason
